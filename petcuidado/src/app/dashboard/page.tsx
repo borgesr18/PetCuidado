@@ -1,41 +1,98 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Heart, Calendar, Syringe, FileText, Users, TrendingUp } from 'lucide-react'
-
-const stats = [
-  {
-    title: 'Total de Pets',
-    value: '0',
-    description: 'Pets cadastrados',
-    icon: Heart,
-    color: 'text-blue-600'
-  },
-  {
-    title: 'Consultas Hoje',
-    value: '0',
-    description: 'Agendadas para hoje',
-    icon: Calendar,
-    color: 'text-green-600'
-  },
-  {
-    title: 'Vacinas Pendentes',
-    value: '0',
-    description: 'Precisam ser aplicadas',
-    icon: Syringe,
-    color: 'text-yellow-600'
-  },
-  {
-    title: 'Prescrições Ativas',
-    value: '0',
-    description: 'Em andamento',
-    icon: FileText,
-    color: 'text-purple-600'
-  }
-]
+import { Heart, Calendar, Syringe, FileText } from 'lucide-react'
+import { getCurrentUser, UserProfile } from '@/lib/auth'
+import { getDashboardStats } from '@/lib/database'
 
 export default function DashboardPage() {
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [stats, setStats] = useState({
+    totalPets: 0,
+    consultasHoje: 0,
+    vacinasPendentes: 0,
+    prescricoesAtivas: 0,
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+        
+        if (currentUser) {
+          const dashboardStats = await getDashboardStats(currentUser.id, currentUser.role)
+          setStats(dashboardStats)
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
+  const dashboardStats = [
+    {
+      title: user?.role === 'admin' ? "Total de Pets" : "Meus Pets",
+      value: stats.totalPets.toString(),
+      description: user?.role === 'admin' ? "Pets no sistema" : "Pets cadastrados",
+      icon: Heart,
+      color: "text-pink-600",
+      href: "/pets"
+    },
+    {
+      title: "Consultas Hoje",
+      value: stats.consultasHoje.toString(),
+      description: "Consultas agendadas para hoje",
+      icon: Calendar,
+      color: "text-blue-600",
+      href: "/consultas"
+    },
+    {
+      title: "Vacinas Pendentes",
+      value: stats.vacinasPendentes.toString(),
+      description: "Vacinas com prazo vencendo",
+      icon: Syringe,
+      color: "text-green-600",
+      href: "/vacinas"
+    },
+    {
+      title: "Prescrições Ativas",
+      value: stats.prescricoesAtivas.toString(),
+      description: "Tratamentos em andamento",
+      icon: FileText,
+      color: "text-purple-600",
+      href: "/prescricoes"
+    }
+  ]
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-96 mt-2 animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -46,23 +103,25 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {dashboardStats.map((stat, index) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
+            <Link key={index} href={stat.href}>
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {stat.title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           )
         })}
       </div>
